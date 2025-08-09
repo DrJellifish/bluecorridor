@@ -25,8 +25,8 @@ logger = setup_logger("bluecorridor.cmems")
 from copernicusmarine import subset, describe
 
 # Product IDs (stable)
-PRODUCT_PHY = "MEDSEA_ANALYSIS_FORECAST_PHY_006_013"   # Med physics (currents)
-PRODUCT_WAV = "MEDSEA_ANALYSIS_FORECAST_WAV_006_017"   # Med waves (Stokes)
+PRODUCT_PHY = "MEDSEA_ANALYSISFORECAST_PHY_006_013"
+PRODUCT_WAV = "MEDSEA_ANALYSISFORECAST_WAV_006_017"
 
 # Output paths
 OUT_PHY = Path("data/raw/cmems_phy_surface.nc")
