@@ -3,11 +3,28 @@ title: "Blue Corridor — Latest Forecast"
 format: html
 ---
 
-_Last updated: `r Sys.time()`_
+<div id="map" style="height: 70vh;"></div>
 
-## Map
-This page loads the latest **site/data/latest/** artifacts from the Blue Corridor pipeline:
-- `tracks_latest.geojson`
-- `summary_latest.csv`
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-(Leaflet map wiring will be added after first real outputs.)
+<script>
+const map = L.map('map').setView([31.5, 34.3], 7); // Levant-ish default
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 14, attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+fetch('data/latest/tracks_latest.geojson')
+  .then(r => r.json())
+  .then(geo => {
+    const layer = L.geoJSON(geo, {
+      style: { weight: 2 },
+      pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 3 })
+    }).addTo(map);
+    try { map.fitBounds(layer.getBounds(), { maxZoom: 10 }); } catch(e) {}
+  })
+  .catch(() => console.warn('No tracks yet'));
+</script>
+
+_Last updated: <span id="ts"></span>_
+<script>document.getElementById('ts').textContent = new Date().toLocaleString();</script>
