@@ -60,17 +60,17 @@ def pull_dataset(dataset_id: str, variables: Iterable[str], outfile: Path,
                  start_iso: str, end_iso: str) -> None:
     outfile.parent.mkdir(parents=True, exist_ok=True)
     logger.info(f"Subsetting {dataset_id} vars={list(variables)} → {outfile.name}")
-    ds = subset(
+    resp = subset(
         dataset_id=dataset_id,
         variables=list(variables),
         minimum_longitude=bbox[0], maximum_longitude=bbox[1],
         minimum_latitude=bbox[2], maximum_latitude=bbox[3],
         start_datetime=start_iso, end_datetime=end_iso,
+        output_filename=str(outfile),          # << important: toolbox writes NetCDF
+        overwrite=True
     )
-    ds.to_netcdf(outfile)
-    if not outfile.exists() or outfile.stat().st_size == 0:
-        raise SystemExit(f"Failed to write {outfile}")
-    logger.info(f"Saved → {outfile}")
+    # Optional sanity log:
+    logger.info(f"Saved → {resp.file_path}")
 
 
 def main():
