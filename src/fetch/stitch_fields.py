@@ -8,7 +8,7 @@ logger = setup_logger()
 
 def main():
     # Placeholder synthetic drivers (replace with real merges)
-    time = xr.cftime_range("2025-01-01", periods=72, freq="H")
+    time = xr.date_range("2025-01-01", periods=72, freq="h")
     zeros = np.zeros(72)
     ds = xr.Dataset(
         {
