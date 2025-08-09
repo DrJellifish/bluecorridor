@@ -4,13 +4,15 @@ zarr
 dask
 numpy
 pandas
-pyproj
-rasterio
-shapely
-geopandas
 requests
 pyyaml
 tqdm
 opendrift
 cartopy
 pyresample
+# Geospatial wheels (install first to avoid GDAL compiling)
+shapely
+pyproj
+rasterio
+fiona
+geopandas
