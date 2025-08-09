@@ -11,7 +11,7 @@ stitch:
 	python -m src.fetch.stitch_fields
 
 sim:
-	python -m src.model.run_particles
+	python -m src.model.run_opendrift
 
 post:
 	python -m src.post.summarize_runs
