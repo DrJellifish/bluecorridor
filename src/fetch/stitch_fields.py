@@ -18,22 +18,18 @@ def _find_var(ds, candidates):
             return name
     raise KeyError(f"None of {candidates} found in {list(ds.data_vars)}")
 
-def _load_cmems_currents() -> xr.Dataset:
-    f = RAW_DIR / "cmems_phy_surface.nc"
+def _load_cmems_stokes() -> xr.Dataset:
+    f = RAW_DIR / "cmems_wav_stokes.nc"
     ds = xr.open_dataset(f)
-    # pick surface if depth/lev dimension is present
-    for dep in ("depth", "lev", "depthu", "depthv"):
-        if dep in ds.dims:
-            ds = ds.isel({dep: 0})
-            break
-    u_name = _find_var(ds, ["uo", "u", "eastward_velocity"])
-    v_name = _find_var(ds, ["vo", "v", "northward_velocity"])
-    ds = ds.rename({u_name: "u_curr", v_name: "v_curr"})
-    # Ensure time is named 'time'
+    # Add VSDX/VSDY here:
+    u_name = _find_var(ds, ["ustokes", "uuss", "us", "VSDX", "vsdx"])
+    v_name = _find_var(ds, ["vstokes", "vvss", "vs", "VSDY", "vsdy"])
+    ds = ds.rename({u_name: "u_stokes", v_name: "v_stokes"})
     if "time" not in ds.coords:
         tname = [c for c in ds.coords if "time" in c][0]
         ds = ds.rename({tname: "time"})
-    return ds[["u_curr", "v_curr"]]
+    return ds[["u_stokes", "v_stokes"]]
+
 
 def _load_cmems_stokes() -> xr.Dataset:
     f = RAW_DIR / "cmems_wav_stokes.nc"
