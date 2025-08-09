@@ -4,7 +4,6 @@ from __future__ import annotations
 Pull CMEMS currents and wave Stokes drift into data/raw/
 """
 
-from __future__ import annotations
 import os
 import logging
 from datetime import datetime, timedelta, timezone
