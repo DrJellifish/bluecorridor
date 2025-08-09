@@ -121,12 +121,21 @@ def main():
     gribs = sorted(glob.glob(str(RAW_DIR / "gfs" / "*.grib2")))
     gfs = _gfs_to_dataset(gribs)  # has coords: valid_time, lat, lon
     # Interp winds to CMEMS time & grid
+    # Interp winds to CMEMS time & grid — use .values to avoid name bleed
     gfs_h = gfs.interp(
-        valid_time=ds_curr_h.time,
+        valid_time=ds_curr_h.time.values,  # <-- IMPORTANT
         lat=ds_curr_h.lat,
         lon=ds_curr_h.lon,
         method="linear"
-    ).rename({"valid_time": "time"})
+    )
+    
+    # If a stray 'time' variable existed, drop it before renaming
+    if "time" in gfs_h.variables and "valid_time" in gfs_h.coords:
+        gfs_h = gfs_h.drop_vars("time")
+    
+    # Rename dimension first, then the coordinate (avoids conflicts)
+    gfs_h = gfs_h.rename_dims({"valid_time": "time"}).rename({"valid_time": "time"})
+
 
     # --- Merge all drivers ---
     drivers = xr.Dataset(
