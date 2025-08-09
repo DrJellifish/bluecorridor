@@ -82,8 +82,10 @@ def main():
     dataset_wav = os.getenv("CMEMS_DATASET_WAV", DATASET_WAV_DEFAULT)
 
     # Variable names in these datasets:
-    vars_phy = ["uo", "vo"]            # eastward/northward surface current
-    vars_wav = ["ustokes", "vstokes"]  # Stokes drift components
+    # Variables to request
+    vars_phy = ["uo", "vo"]          # currents
+    vars_wav = ["VSDX", "VSDY"]      # Stokes drift (x/y)
+
 
     pull_dataset(dataset_phy, vars_phy, OUT_PHY, bbox, start_iso, end_iso)
     pull_dataset(dataset_wav, vars_wav, OUT_WAV, bbox, start_iso, end_iso)
