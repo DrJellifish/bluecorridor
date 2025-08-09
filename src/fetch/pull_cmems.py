@@ -1,120 +1,113 @@
 from __future__ import annotations
-
+#!/usr/bin/env python
 """
-Pull CMEMS Med Physics (surface currents) & Waves (Stokes drift) using the
-Copernicus Marine Toolbox. Writes two NetCDFs under data/raw/ for stitching.
-
-Env (optional):
-  CMEMS_BBOX   = "28,36,31,35"   # lon_min,lon_max,lat_min,lat_max
-  CMEMS_HOURS  = "72"            # forecast horizon
-  CMEMS_START  = ISO8601 UTC     # default: now (rounded hour)
-  CMEMS_USER / CMEMS_PASS        # if not using interactive login
-
-Requires: pip install copernicusmarine
-First time: copernicusmarine login
+Pull CMEMS currents and wave Stokes drift into data/raw/
 """
+
+from __future__ import annotations
 import os
-import datetime as dt
-from pathlib import Path
-import yaml
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Iterable
 
-from src.util.logging_setup import setup_logger
-logger = setup_logger("bluecorridor.cmems")
-
-# Official toolbox
 from copernicusmarine import subset, describe
+import xarray as xr
 
-# Product IDs (stable)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
+
+# === CONFIG ===
+BBOX = (28.0, 36.0, 31.0, 35.0)  # lon_min, lon_max, lat_min, lat_max
+HOURS_AHEAD = 72
+
+# CMEMS product IDs (MedSea forecast)
 PRODUCT_PHY = "MEDSEA_ANALYSISFORECAST_PHY_006_013"
 PRODUCT_WAV = "MEDSEA_ANALYSISFORECAST_WAV_006_017"
 
-# Output paths
-OUT_PHY = Path("data/raw/cmems_phy_surface.nc")
-OUT_WAV = Path("data/raw/cmems_wav_stokes.nc")
+# Local storage
+RAW_DIR = os.path.join("data", "raw")
+os.makedirs(RAW_DIR, exist_ok=True)
 
-
-def _env(name: str, default: str | None = None) -> str | None:
-    v = os.getenv(name, default)
-    return v
-
-
-def _bbox() -> tuple[float, float, float, float]:
-    s = _env("CMEMS_BBOX", "28,36,31,35")
-    lon_min, lon_max, lat_min, lat_max = [float(x) for x in s.split(",")]
-    return lon_min, lon_max, lat_min, lat_max
-
-
-def _time_window() -> tuple[str, str]:
-    start_s = _env("CMEMS_START")
-    if start_s:
-        start = dt.datetime.fromisoformat(start_s.replace("Z", "+00:00")).astimezone(dt.timezone.utc)
-    else:
-        start = dt.datetime.utcnow().replace(minute=0, second=0, microsecond=0, tzinfo=dt.timezone.utc)
-    hours = int(_env("CMEMS_HOURS", "72"))
-    end = start + dt.timedelta(hours=hours)
-    return start.isoformat().replace("+00:00", "Z"), end.isoformat().replace("+00:00", "Z")
-
+def _list_datasets(product_id: str) -> list[tuple[str, list[str]]]:
+    """
+    Return [(dataset_id, keywords[]), ...] for a product.
+    """
+    cat = describe(product_id=product_id)  # returns CopernicusMarineCatalogue
+    items = []
+    for ds in getattr(cat, "datasets", []) or []:
+        dsid = getattr(ds, "dataset_id", "")
+        kws = getattr(ds, "keywords", None) or []
+        kws = list(kws) if isinstance(kws, (list, tuple, set)) else []
+        items.append((dsid, kws))
+    return items
 
 def _pick_dataset(product_id: str, prefer_keywords: tuple[str, ...]) -> str:
-    info = describe(product_id=product_id)
-    datasets = info.get("datasets", []) or []
-    if not datasets:
+    """
+    Prefer a dataset whose keywords+id contain all prefer_keywords (case-insensitive).
+    Fallback: first dataset.
+    """
+    items = _list_datasets(product_id)
+    if not items:
         raise SystemExit(f"No datasets listed for product {product_id}")
-    kw = [k.lower() for k in prefer_keywords]
-    for ds in datasets:
-        dsid = ds.get("dataset_id", "")
-        text = " ".join((dsid, " ".join(ds.get("keywords", [])))).lower()
-        if all(k in text for k in kw):
+    want = [k.lower() for k in prefer_keywords]
+    for dsid, kws in items:
+        hay = (dsid + " " + " ".join(kws)).lower()
+        if all(k in hay for k in want):
             logger.info(f"[{product_id}] Selected dataset by keywords: {dsid}")
             return dsid
-    dsid = datasets[0].get("dataset_id")
+    dsid = items[0][0]
     logger.info(f"[{product_id}] Using fallback dataset: {dsid}")
     return dsid
 
-
-def _subset_one(dataset_id: str, variables: list[str], out_nc: Path,
-                bbox: tuple[float, float, float, float],
-                start_iso: str, end_iso: str) -> None:
-    out_nc.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Subsetting {dataset_id} vars={variables} → {out_nc.name}")
-    subset(
+def _fetch_and_save(product_id: str, dataset_id: str, variables: Iterable[str], outfile: str,
+                    start: datetime, end: datetime, bbox: tuple[float, float, float, float]):
+    """
+    Download subset from CMEMS and save to NetCDF.
+    """
+    logger.info(f"Fetching {product_id} / {dataset_id} → {outfile}")
+    ds = subset(
+        product_id=product_id,
         dataset_id=dataset_id,
         variables=variables,
-        minimum_longitude=bbox[0], maximum_longitude=bbox[1],
-        minimum_latitude=bbox[2], maximum_latitude=bbox[3],
-        start_datetime=start_iso,
-        end_datetime=end_iso,
-        output_filename=str(out_nc),
-        overwrite=True,
+        minimum_longitude=bbox[0],
+        maximum_longitude=bbox[1],
+        minimum_latitude=bbox[2],
+        maximum_latitude=bbox[3],
+        start_datetime=start,
+        end_datetime=end,
     )
-    if not out_nc.exists() or out_nc.stat().st_size == 0:
-        raise SystemExit(f"Failed to save {out_nc}")
-    logger.info(f"Saved → {out_nc}")
-
+    ds.to_netcdf(outfile)
+    logger.info(f"Saved {outfile}")
 
 def main():
-    cfg_vars_phy = ["uo", "vo"]
-    cfg_vars_wav = ["ustokes", "vstokes"]
-    try:
-        with open("config/layers.yaml", "r") as f:
-            cfg = yaml.safe_load(f) or {}
-        cfg_vars_phy = cfg.get("variables", {}).get("phy", cfg_vars_phy)
-        cfg_vars_wav = cfg.get("variables", {}).get("wav", cfg_vars_wav)
-        ds_phy_cfg = cfg.get("fields", {}).get("dataset_phy", "") or None
-        ds_wav_cfg = cfg.get("fields", {}).get("dataset_wav", "") or None
-    except Exception:
-        ds_phy_cfg = ds_wav_cfg = None
+    now = datetime.now(timezone.utc)
+    start = now.replace(minute=0, second=0, microsecond=0)
+    end = start + timedelta(hours=HOURS_AHEAD)
+    logger.info(f"BBOX={BBOX} START={start.isoformat()} END={end.isoformat()}")
 
-    bbox = _bbox()
-    start_iso, end_iso = _time_window()
-    logger.info(f"BBOX={bbox} START={start_iso} END={end_iso}")
+    # Optional: list datasets and exit
+    if os.getenv("CMEMS_LIST", "0") == "1":
+        for pid in (PRODUCT_PHY, PRODUCT_WAV):
+            rows = _list_datasets(pid)
+            logger.info(f"Datasets for {pid}:")
+            for dsid, kws in rows:
+                logger.info(f"  - {dsid} | keywords={kws}")
+        return
 
+    # Dataset IDs from config/env or auto-pick by keywords
+    ds_phy_cfg = os.getenv("CMEMS_DATASET_PHY")
+    ds_wav_cfg = os.getenv("CMEMS_DATASET_WAV")
     dataset_phy = ds_phy_cfg or _pick_dataset(PRODUCT_PHY, ("surface", "hour", "forecast"))
-    dataset_wav = ds_wav_cfg or _pick_dataset(PRODUCT_WAV, ("stokes", "surface", "hour", "forecast"))
+    dataset_wav = ds_wav_cfg or _pick_dataset(PRODUCT_WAV, ("stokes", "surface", "hour"))
 
-    _subset_one(dataset_phy, cfg_vars_phy, OUT_PHY, bbox, start_iso, end_iso)
-    _subset_one(dataset_wav, cfg_vars_wav, OUT_WAV, bbox, start_iso, end_iso)
+    # Variables to request
+    vars_phy = ["uo", "vo"]                # CMEMS currents
+    vars_wav = ["ustokes", "vstokes"]      # Stokes drift
 
+    _fetch_and_save(PRODUCT_PHY, dataset_phy, vars_phy,
+                    os.path.join(RAW_DIR, "cmems_phy_surface.nc"), start, end, BBOX)
+    _fetch_and_save(PRODUCT_WAV, dataset_wav, vars_wav,
+                    os.path.join(RAW_DIR, "cmems_wav_stokes.nc"), start, end, BBOX)
 
 if __name__ == "__main__":
     main()
