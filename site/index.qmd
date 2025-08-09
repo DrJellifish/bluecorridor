@@ -1,0 +1,13 @@
+---
+title: "Blue Corridor — Latest Forecast"
+format: html
+---
+
+_Last updated: `r Sys.time()`_
+
+## Map
+This page loads the latest **site/data/latest/** artifacts from the Blue Corridor pipeline:
+- `tracks_latest.geojson`
+- `summary_latest.csv`
+
+(Leaflet map wiring will be added after first real outputs.)

@@ -1,0 +1,5 @@
+name: bottle_raft_v1
+freeboard_cm: 3.0
+windage_pct: 4.0
+drag_coeff: 1.0
+leeway_deg: 5.0

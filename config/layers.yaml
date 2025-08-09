@@ -1,0 +1,14 @@
+fields:
+  currents: MEDSEA_ANALYSIS_FORECAST_PHY_006_013
+  waves: MEDSEA_ANALYSIS_FORECAST_WAV_006_017
+  winds: ECMWF_HRES   # fallback: GFS_0p25
+variables:
+  - u_curr
+  - v_curr
+  - u_stokes
+  - v_stokes
+  - u_wind
+  - v_wind
+meta:
+  align_to: hourly
+  horizon_hours: 72

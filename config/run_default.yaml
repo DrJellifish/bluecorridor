@@ -1,0 +1,20 @@
+domain:
+  bbox: [28.0, 35.0, 31.0, 34.5]   # lon_min, lon_max, lat_min, lat_max
+  grid_res_km: 4.2
+time:
+  start: "now"
+  horizon_hours: 72
+release:
+  points: [[31.8, 33.1], [31.6, 33.3]]   # lat, lon
+  time_spread_min: 45
+ensemble:
+  members: 20
+  windage_jitter_pct: 1.0
+  uv_noise_cm_s: 2.0
+beaching:
+  coastal_buffer_m: 200
+  depth_thresh_m: 3
+outputs:
+  save_geojson: true
+  save_heatmap: true
+  save_summary: true
