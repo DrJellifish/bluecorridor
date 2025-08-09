@@ -1,0 +1,16 @@
+xarray
+netcdf4
+zarr
+dask
+numpy
+pandas
+pyproj
+rasterio
+shapely
+geopandas
+requests
+pyyaml
+tqdm
+opendrift
+cartopy
+pyresample
